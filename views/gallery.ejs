@@ -1,0 +1,54 @@
+<% layout('layouts/boilerplate') -%>
+    <div id='image-grid' style="height: auto">
+        <div style='margin-left: auto; margin-right: auto; position: relative'>
+            <% if (partialImages.length) {%>
+                <% for (let partial of partialImages) { %>
+                    <div class='d-inline-block block'>
+                        <img src=<%=partial.url%> alt="" style='width: 100%; border-radius: 20px;'>
+                        <div class="my-1" style="font-family: Arial; font-weight: 600">
+                            <%= partial.name %>
+                        </div>
+                    </div>
+                    <% } %>
+                        <% } else { %>
+                            <div>Select some images :3</div>
+                            <% } %>
+        </div>
+    </div>
+
+    <script>
+        const blocks = document.querySelectorAll('.block')
+        const setupBlocks = () => {
+            const windowWidth = window.innerWidth
+            const blockWidth = 200
+            const margin = 20
+            const colCount = parseInt((windowWidth - margin) / (blockWidth + margin))
+            const blockHeights = []
+            const offset = (windowWidth - colCount * (blockWidth + margin) - 2 * margin) / 2
+
+            for (let i = 0; i < colCount; i++)
+                blockHeights.push(margin)
+
+            blocks.forEach(block => {
+                let minIdx = blockHeights.reduce((minIndex, current, idx) => {
+                    return blockHeights[minIndex] > current ? idx : minIndex
+                }, 0)
+                block.style.cssText = `
+                    position: absolute;
+                    background: white;
+                    width: ${blockWidth}px;
+                    top: ${blockHeights[minIdx]}px;
+                    left: ${minIdx * (blockWidth + margin) + margin + offset}px;
+                `
+                blockHeights[minIdx] += block.getBoundingClientRect().height + margin
+            })
+        }
+
+        if (blocks.length)
+            setupBlocks()
+
+        window.addEventListener('resize', () => {
+
+            setupBlocks()
+        })
+    </script>

@@ -1,0 +1,302 @@
+<% layout('layouts/boilerplate') -%>
+    <!-- Button trigger modal -->
+    <button id="modal-trigger" type="button" class="btn btn-primary" data-bs-toggle="modal"
+        data-bs-target="#prompt-modal" style="display: none"></button>
+
+    <!-- Modal -->
+    <div class="modal" id="prompt-modal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="exampleModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Give a name to your clipped image</h5>
+                </div>
+                <div class="modal-body">
+                    <label for="input-prompt" class="form-label">Image Name</label>
+                    <input type="text" id="input-prompt" class="form-control">
+                </div>
+                <div class="modal-footer">
+                    <button id="close-modal" type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancel</button>
+                    <button id="apply-name" type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-page" style="display: none">
+        <div class="spinner-border text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-start" style="overflow: hidden">
+        <div style="min-width:20vw; height: 90vh" class="d-flex flex-column shadow">
+            <div class="d-flex flex-column align-items-center overflow-auto mx-3 px-3 pb-3" style="max-height: 90%">
+                <% for (let image of images) { %>
+                    <img class="mt-4 image-input" src=<%=image.url%> alt='' id=<%=image.id%> style="max-width: 100%;
+                        cursor: pointer">
+                        <% } %>
+            </div>
+            <div>
+                <form action="/upload-image" enctype="multipart/form-data" method="post">
+                    <div class="m-3">
+                        <input class="form-control" type="file" id="image-upload" name="image" multiple>
+                        <button type="submit" class="btn btn-primary my-2">Upload</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="d-inline-flex flex-column m-3 shadow p-2 flex-grow-2" style="min-width:50vw;">
+            <% if (image_id) { %>
+                <% let image=images.find(image=> image.id == image_id) %>
+                    <div id="canvas-container" style="position: relative; cursor: crosshair">
+                        <canvas id="canvas" style="position: absolute"></canvas>
+                        <img id="current-image" src=<%=image.url%> alt="" style="display: block; margin:auto;
+                        max-height:80vh; max-width: 100%; object-fit: cover">
+                    </div>
+                    <div style="margin: 5px auto 5px auto">
+                        <button id="delete-button" type="button" class="btn btn-danger btn-lg">Delete</button>
+                        <button id="submit-button" type="button" class="btn btn-info btn-lg">Submit</button>
+                    </div>
+                    <% } else { %>
+                        <h1>Choose an image</h1>
+                        <% } %>
+        </div>
+        <div class="shadow mx-3 flex-wrap p-3">
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Ipsam quo blanditiis accusamus molestias a, nobis
+            amet odit laudantium enim sapiente iusto sunt excepturi pariatur vitae officia minus perspiciatis deserunt
+            soluta?
+        </div>
+    </div>
+    <script>
+        const image_upload = document.querySelector('#image-upload')
+        const prompt_modal = document.querySelector('#prompt-modal')
+        const input_prompt = document.querySelector('#input-prompt')
+        const apply_name = document.querySelector('#apply-name')
+        const modal_trigger = document.getElementById('modal-trigger')
+        const canvas = document.getElementById('canvas')
+        const close_modal = document.getElementById('close-modal')
+        let myModal = new bootstrap.Modal(prompt_modal)
+
+        prompt_modal.addEventListener('shown.bs.modal', () => {
+            input_prompt.focus()
+        })
+        apply_name.addEventListener('click', (e) => {
+            if (input_prompt.value) {
+                e.currentTarget.params.setAttribute('data-value', input_prompt.value)
+                input_prompt.value = ''
+                myModal.hide()
+            }
+        })
+        input_prompt.addEventListener('keypress', (e) => {
+            if (e.which === 13)
+                apply_name.click()
+        })
+        close_modal.addEventListener('click', (e) => {
+            e.currentTarget.params.remove()
+        })
+
+        window.addEventListener('resize', () => {
+            if (!canvas) return
+            let current_img = document.querySelector('#current-image').getBoundingClientRect()
+            let cnv_bounds = canvas.getBoundingClientRect()
+            canvas.style.width = '100%'
+            canvas.style.height = '100%'
+            canvas.width = canvas.offsetWidth
+            canvas.height = canvas.offsetHeight
+
+            document.querySelectorAll('.unselectable')
+                .forEach(rect => {
+                    rect.style.cssText = `
+                    position: absolute;
+                        top: ${rect.getAttribute('data-top') * current_img.height / 100 + current_img.y - cnv_bounds.y}px;
+                        left: ${rect.getAttribute('data-left') * current_img.width / 100 + current_img.x - cnv_bounds.x}px;
+                        width: ${rect.getAttribute('data-width') * current_img.width / 100}px;
+                        height: ${rect.getAttribute('data-height') * current_img.height / 100}px;
+                        background: transparent;
+                        border: 3px solid red;
+                        pointer-events: none;
+                    `
+                })
+        })
+
+
+        if (canvas) {
+            const img_url = `<%=images.find(img => img.id == image_id)?.url%>`
+            const ctx = canvas.getContext('2d')
+            let mousedrag = false
+            let startX, startY
+            let cnv_bounds = canvas.getBoundingClientRect()
+            canvas.style.width = '100%'
+            canvas.style.height = '100%'
+            canvas.width = canvas.offsetWidth
+            canvas.height = canvas.offsetHeight
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (delete_mode)
+                    button.click()
+                mousedrag = true
+                startX = e.clientX
+                startY = e.clientY
+            })
+            canvas.addEventListener('mouseup', (e) => {
+                const current_img = document.querySelector('#current-image').getBoundingClientRect()
+                let div = document.createElement('div')
+                div.setAttribute('data-top', 100 * (Math.min(e.clientY, startY) - current_img.y) / current_img.height)
+                div.setAttribute('data-left', 100 * (Math.min(e.clientX, startX) - current_img.x) / current_img.width)
+                div.setAttribute('data-width', 100 * Math.abs(e.clientX - startX) / current_img.width)
+                div.setAttribute('data-height', 100 * Math.abs(e.clientY - startY) / current_img.height)
+                div.style.cssText = `
+                    position: absolute;
+                    top: ${div.getAttribute('data-top') * current_img.height / 100 + current_img.y - cnv_bounds.y}px;
+                    left: ${div.getAttribute('data-left') * current_img.width / 100 + current_img.x - cnv_bounds.x}px;
+                    width: ${div.getAttribute('data-width') * current_img.width / 100}px;
+                    height: ${div.getAttribute('data-height') * current_img.height / 100}px;
+                    background: transparent;
+                    border: 3px solid red;
+                    pointer-events: none;
+                `
+                div.classList.add('unselectable')
+
+                let delete_opt = document.createElement('div')
+                delete_opt.classList.add('delete-opt')
+                delete_opt.innerHTML = 'X'
+                delete_opt.style.cssText = `
+                    padding: 3px;
+                    font-weight: bold;
+                    background-color: black;
+                    color: white;
+                    display: none;
+                    position: absolute;
+                    right: 0;
+                `
+                delete_opt.addEventListener('mouseenter', () => {
+                    delete_opt.style.cursor = 'pointer'
+                })
+                delete_opt.addEventListener('mouseleave', () => {
+                    delete_opt.style.cursor = 'default'
+                })
+                delete_opt.addEventListener('click', () => {
+                    delete_opt.parentElement.remove()
+                })
+                div.appendChild(delete_opt)
+                document.getElementById('canvas-container').appendChild(div)
+
+                modal_trigger.click()
+                apply_name.params = div
+                close_modal.params = div
+
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                mousedrag = false
+            })
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (mousedrag) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height)
+                    ctx.strokeStyle = 'red'
+                    ctx.strokeRect(startX - cnv_bounds.x, startY - cnv_bounds.y, e.clientX - startX, e.clientY - startY)
+                }
+            })
+
+            const button = document.querySelector('#delete-button')
+            let delete_mode = false
+            button.addEventListener('click', () => {
+                delete_mode ^= 1
+                button.classList.remove(delete_mode ? 'btn-danger' : 'btn-success')
+                button.classList.add(delete_mode ? 'btn-success' : 'btn-danger')
+                button.innerHTML = delete_mode ? 'Done' : 'Delete'
+                document.querySelectorAll('.unselectable')
+                    .forEach(rect => {
+                        rect.style.pointerEvents = delete_mode ? 'auto' : 'none'
+                    })
+                document.querySelectorAll('.delete-opt')
+                    .forEach(opt => {
+                        if (delete_mode) {
+                            opt.style.display = 'block'
+                        }
+                        else {
+                            opt.style.display = 'none'
+                        }
+                    })
+            })
+
+            const post_partials = async (rectangles) => {
+                for (let rect of rectangles) {
+                    const current_img = document.querySelector('#current-image')
+                    const cnv = document.createElement('canvas')
+                    const cnvCtx = cnv.getContext('2d')
+                    const bounds = rect.getBoundingClientRect()
+                    const currentImageBounds = current_img.getBoundingClientRect()
+
+                    let img = new Image()
+                    img.src = img_url
+                    img.crossOrigin = 'anonymous'
+                    let process = new Promise((resolve, reject) => {
+                        img.onload = () => {
+                            const scaleX = img.width / currentImageBounds.width
+                            const scaleY = img.height / currentImageBounds.height
+                            cnv.width = bounds.width * scaleX
+                            cnv.height = bounds.height * scaleY
+                            cnvCtx.drawImage(
+                                img,
+                                scaleX * (bounds.x - currentImageBounds.x),
+                                scaleY * (bounds.y - currentImageBounds.y),
+                                scaleX * bounds.width,
+                                scaleY * bounds.height,
+                                0,
+                                0,
+                                scaleX * bounds.width,
+                                scaleY * bounds.height
+                            )
+
+                            cnv.toBlob((blob) => {
+                                let formData = new FormData()
+                                formData.append('partial', blob, rect.getAttribute('data-value'))
+                                fetch('/upload-partial', {
+                                    method: 'POST',
+                                    body: formData
+                                }).then(() => {
+                                    rect.remove()
+                                })
+                            })
+                        }
+                    })
+                    await process
+                }
+            }
+
+            const submit = document.querySelector('#submit-button')
+            submit.addEventListener('click', async () => {
+                const rectangles = document.querySelectorAll('.unselectable')
+                if (rectangles.length) {
+                    const loading_page = document.querySelector('#loading-page')
+                    loading_page.style.cssText = `
+                        position: fixed;
+                        width: 100vw;
+                        height: 100vh;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 99;
+                        background-color: rgba(0,0,0,0.5);
+                    `
+                    post_partials(rectangles).then(() => {
+                        fetch(`/delete-image/<%=image_id%>`, {
+                            method: 'post'
+                        }).then(() => {
+                            loading_page.style.display = 'none';
+                            window.location.href = '/'
+                        })
+                    })
+                }
+            })
+        }
+
+        const redirect = (e) => {
+            location.href = `/pics/${e.target.id}`
+        }
+        document.querySelectorAll('.image-input')
+            .forEach(input => input.addEventListener('click', redirect))
+    </script>
